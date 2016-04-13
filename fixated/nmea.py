@@ -28,6 +28,13 @@ class TPV(object):
         self.ts = None
 
     def _finalize(self):
+        if (self.yr is None) or \
+            (self.mon is None) or \
+            (self.day is None) or \
+            (self.hr is None) or \
+            (self.mn is None) or \
+            (self.sec is None):
+            return
         self.ts = datetime(self.yr, self.mon, self.day, self.hr,
                 self.mn, self.sec)
 
@@ -35,6 +42,9 @@ class TPV(object):
         return self.__repr__()
 
     def __repr__(self):
+        if self.lat_dec is None or self.lon_dec is None:
+            return 'TPV<ll=None, fix_type=%s, fix_dim=%s, ts=%s>' % (
+                    self.fix_type, self.fix_dim, self.ts)
         return 'TPV<ll=(%.6f, %.6f), fix_type=%s, fix_dim=%s, ts=%s>' % (
                 self.lat_dec,
                 self.lon_dec,
@@ -87,6 +97,13 @@ class NmeaParser(object):
         self.incoming_tpv = TPV()
 
         self.tpvs = []
+
+    def nmea_coord_to_dec_deg(self, coord, nsew):
+        dec_idx = coord.index('.') - 2
+        deg = int(coord[0:dec_idx])
+        mn = float(coord[dec_idx:])
+
+        return (deg + mn / 60.0) * (1 if nsew in ['N', 'E'] else -1)
 
     def check_for_complete_tpv_set(self, cmd):
         complete_set = False
@@ -168,30 +185,27 @@ class NmeaParser(object):
         cmd = message[0]
 
         time = message[1]
-        i.hr = int(time[0:2])
-        i.mn = int(time[2:4])
-        i.sec = int(time[4:6])
+        if time != '':
+            i.hr = int(time[0:2])
+            i.mn = int(time[2:4])
+            i.sec = int(time[4:6])
 
         i.warn = message[2] != 'A'
 
         lat = message[3]
         ns = message[4]
-        dec_idx = lat.index('.') - 2
-        lat_deg = int(lat[0:dec_idx])
-        lat_min = float(lat[dec_idx:])
-        i.lat_dec = (lat_deg + (lat_min / 60)) * (1 if ns == 'N' else -1)
-
         lon = message[5]
         ew = message[6]
-        dec_idx = lon.index('.') - 2
-        lon_deg = int(lon[0:dec_idx])
-        lon_min = float(lon[dec_idx:])
-        i.lon_dec = (lon_deg + (lon_min / 60)) * (1 if ew == 'E' else -1)
+
+        if lat != '' and lon != '':
+            i.lat_dec = self.nmea_coord_to_dec_deg(lat, ns)
+            i.lon_dec = self.nmea_coord_to_dec_deg(lon, ew)
 
         date = message[9]
-        i.day = int(date[0:2])
-        i.mon = int(date[2:4])
-        i.yr = int(date[4:6]) + 2000
+        if date != '':
+            i.day = int(date[0:2])
+            i.mon = int(date[2:4])
+            i.yr = int(date[4:6]) + 2000
 
         self.check_for_complete_tpv_set(cmd)
 
@@ -207,12 +221,30 @@ class NmeaParser(object):
 
         cmd = message[0]
 
+        time = message[1]
+        if time != '':
+            i.hr = int(time[0:2])
+            i.mn = int(time[2:4])
+            i.sec = int(time[4:6])
+
+        lat = message[2]
+        ns = message[3]
+        lon = message[4]
+        ew = message[5]
+
+        if lat != '' and lon != '':
+            i.lat_dec = self.nmea_coord_to_dec_deg(lat, ns)
+            i.lon_dec = self.nmea_coord_to_dec_deg(lon, ew)
+
         # fix_type 0 = None
         # fix_type 1 = GPS
         # fix_type 2 = DPGS
         i.fix_type = int(message[6])
-        i.alt = float(message[9])
-        i.height_wgs84 = float(message[11])
+
+        if message[9] != '':
+            i.alt = float(message[9])
+        if message[11] != '':
+            i.height_wgs84 = float(message[11])
 
         self.check_for_complete_tpv_set(cmd)
 
@@ -230,11 +262,16 @@ class NmeaParser(object):
         # 2 - 3d
         i.fix_dim = int(message[2])
 
-        i.pdop = float(message[15])
-        i.hdop = float(message[16])
-        i.vdop = float(message[17])
+        if message[15] != '':
+            i.pdop = float(message[15])
+        if message[16] != '':
+            i.hdop = float(message[16])
+        if message[17] != '':
+            i.vdop = float(message[17])
 
         self.check_for_complete_tpv_set(cmd)
+        # TODO: Parse GPVTG
+        # TODO: Skip empty lines
 
     def parse_GPGSV(self, message):
         # Assumptions:
@@ -256,6 +293,12 @@ class NmeaParser(object):
         for i in range(4, len(message), 4):
             sat = message[i:i+4]
             (prn, elevation, azimuth, snr) = sat
+
+            if prn == '' or \
+                elevation == '' or \
+                azimuth == '':
+                continue
+
             sat = Satellite(prn, elevation, azimuth, snr)
             self.incoming_gsvs.append(sat)
 

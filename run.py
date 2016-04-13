@@ -14,6 +14,7 @@ def main():
 
     coords = []
     for tpv in np.tpvs:
+        print tpv
         coords.append((tpv.lon_dec, tpv.lat_dec))
     kml = simplekml.Kml()
     kml.newlinestring(coords=coords)
