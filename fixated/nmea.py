@@ -1,90 +1,20 @@
 import traceback
+import logging
 from datetime import datetime
 
-class TPV(object):
-    def __init__(self):
-        self.lat_dec = None
-        self.lon_dec = None
-        self.alt = None
-        self.height_wgs84 = None
-
-        self.hdop = None
-        self.vdop = None
-        self.pdop = None
-
-        self.fix_type = None
-        self.fix_dim = None
-        self.forced = None
-        self.warn = None
-
-        self.hr = None
-        self.mn = None
-        self.sec = None
-
-        self.day = None
-        self.mon = None
-        self.yr = None
-
-        self.ts = None
-
-    def _finalize(self):
-        if (self.yr is None) or \
-            (self.mon is None) or \
-            (self.day is None) or \
-            (self.hr is None) or \
-            (self.mn is None) or \
-            (self.sec is None):
-            return
-        self.ts = datetime(self.yr, self.mon, self.day, self.hr,
-                self.mn, self.sec)
-
-    def __str__(self):
-        return self.__repr__()
-
-    def __repr__(self):
-        if self.lat_dec is None or self.lon_dec is None:
-            return 'TPV<ll=None, fix_type=%s, fix_dim=%s, ts=%s>' % (
-                    self.fix_type, self.fix_dim, self.ts)
-        return 'TPV<ll=(%.6f, %.6f), fix_type=%s, fix_dim=%s, ts=%s>' % (
-                self.lat_dec,
-                self.lon_dec,
-                self.fix_type,
-                self.fix_dim,
-                self.ts)
-
-class Satellite(object):
-    def __init__(self, prn, elevation, azimuth, snr):
-        self.prn = prn
-        self.elevation = int(elevation.strip())
-        self.azimuth = int(azimuth.strip())
-
-        try:
-            self.snr = int(snr.strip())
-            self.tracked = True
-        except ValueError as e:
-            if snr.strip() in ['', None]:
-                self.tracked = False
-                self.snr = None
-            else:
-                raise e
-
-    def __str__(self):
-        return self.__repr__()
-
-    def __repr__(self):
-        return 'Satellite<prn=%s, elevation=%d, azimuth=%d, snr=%s>' % (
-                self.prn,
-                self.elevation,
-                self.azimuth,
-                self.snr)
+from .util import nmea_coord_to_dec_deg
+from .datatypes import TPV, Satellite
 
 class NmeaParser(object):
     def __init__(self, collect_errors=False):
+        self.lgr = logging.getLogger('NmeaParser')
+
         self.collect_errors = collect_errors
         self.parsing_errors = []
+
         self.seen_cmds = set()
 
-        self.satellites = []
+        self.satellites = {}
         self.last_satellites = datetime.fromtimestamp(0)
         self.incoming_gsvs = []
 
@@ -98,13 +28,6 @@ class NmeaParser(object):
 
         self.tpvs = []
 
-    def nmea_coord_to_dec_deg(self, coord, nsew):
-        dec_idx = coord.index('.') - 2
-        deg = int(coord[0:dec_idx])
-        mn = float(coord[dec_idx:])
-
-        return (deg + mn / 60.0) * (1 if nsew in ['N', 'E'] else -1)
-
     def check_for_complete_tpv_set(self, cmd):
         complete_set = False
         self.this_tpv_set.add(cmd)
@@ -113,17 +36,18 @@ class NmeaParser(object):
             if cmd in self.tpv_cmds:
                 self.tpv_set_known = True
                 complete_set = True
+                self.lgr.info("Got complete TPV set: %s", str(self.tpv_cmds))
             else:
                 self.tpv_cmds.add(cmd)
                 return
 
         if self.this_tpv_set == self.tpv_cmds:
-            self.incoming_tpv._finalize()
             self.latest_tpv = self.incoming_tpv
             self.tpvs.append(self.latest_tpv)
 
             self.this_tpv_set = set()
             self.incoming_tpv = TPV()
+            self.lgr.info(str(self.latest_tpv))
 
         # TODO: Last valid TPV
 
@@ -132,6 +56,14 @@ class NmeaParser(object):
         line = line.strip()
         if line == '':
             return
+
+        # Skip messages that don't start with $
+        if not line.startswith('$'):
+            if self.collect_errors:
+                self.parsing_errors.append((line, None, "Doesn't start with $"))
+            return
+
+        self.lgr.debug(line)
 
         # Even if we don't parse it, let's add the command
         name = line.strip().split(",")[0]
@@ -146,11 +78,10 @@ class NmeaParser(object):
         # Convert the checksum from string to int
         try:
             reported_csum = int(reported_csum, 16)
-        except ValueError:
-            return
-
-        # Skip messages that don't start with $
-        if not message.startswith('$'):
+        except ValueError as e:
+            self.lgr.warn('Unable to parse checksum for line', line)
+            if self.collect_errors:
+                self.parsing_errors.append((line, e, traceback.format_exc()))
             return
 
         # Calculate the checksum (characters after $ sign)
@@ -159,19 +90,29 @@ class NmeaParser(object):
         for char in message[1:]:
             calced_csum ^= ord(char)
         if calced_csum != reported_csum:
+            msg = 'Checksum Mismatch / %s / expected %02x'
+            msg = msg % (line, calced_csum)
+            self.lgr.warn(msg)
+            if self.collect_errors:
+                self.parsing_errors.append((line, None, msg))
             return
 
         # Find appropriate parsing function (if it exists)
         func = getattr(self, 'parse_%s' % name[1:], None)
         if func is None:
+            #if self.collect_errors:
+            #    self.parsing_errors.append((line, None,
+            #        "No handlers for %s" % name[1:]))
             return
 
         try:
             return func(message)
         except StandardError as e:
+            msg = '%s\n%s' % (line, e)
+            self.lgr.error(msg)
+            self.lgr.error(traceback.format_exc())
             if self.collect_errors:
                 self.parsing_errors.append((line, e, traceback.format_exc()))
-
 
     def parse_GPRMC(self, message):
         # Assumptions:
@@ -180,32 +121,42 @@ class NmeaParser(object):
         #  - Minutes are 0 filled. (Otherwise, wat?)
         #  - We're past Y2K
         message = message.split(',')
-        i = self.incoming_tpv
+        inc = self.incoming_tpv
 
         cmd = message[0]
 
         time = message[1]
         if time != '':
-            i.hr = int(time[0:2])
-            i.mn = int(time[2:4])
-            i.sec = int(time[4:6])
+            inc.hr = int(time[0:2])
+            inc.min = int(time[2:4])
+            inc.sec = int(time[4:6])
 
-        i.warn = message[2] != 'A'
+        inc.warn = message[2] != 'A'
 
         lat = message[3]
         ns = message[4]
         lon = message[5]
         ew = message[6]
 
+        try:
+            inc.vel_knots = float(message[7])
+        except ValueError:
+            inc.vel_knots = None
+
+        try:
+            inc.vel_deg = float(message[8])
+        except:
+            inc.vel_deg = None
+
         if lat != '' and lon != '':
-            i.lat_dec = self.nmea_coord_to_dec_deg(lat, ns)
-            i.lon_dec = self.nmea_coord_to_dec_deg(lon, ew)
+            inc.lat_dec = nmea_coord_to_dec_deg(lat, ns)
+            inc.lon_dec = nmea_coord_to_dec_deg(lon, ew)
 
         date = message[9]
         if date != '':
-            i.day = int(date[0:2])
-            i.mon = int(date[2:4])
-            i.yr = int(date[4:6]) + 2000
+            inc.day = int(date[0:2])
+            inc.mon = int(date[2:4])
+            inc.yr = int(date[4:6]) + 2000
 
         self.check_for_complete_tpv_set(cmd)
 
@@ -217,15 +168,15 @@ class NmeaParser(object):
         # - No one cares about DGPS
         # - Alt and Height are in M
         message = message.split(',')
-        i = self.incoming_tpv
+        inc = self.incoming_tpv
 
         cmd = message[0]
 
         time = message[1]
         if time != '':
-            i.hr = int(time[0:2])
-            i.mn = int(time[2:4])
-            i.sec = int(time[4:6])
+            inc.hr = int(time[0:2])
+            inc.min = int(time[2:4])
+            inc.sec = int(time[4:6])
 
         lat = message[2]
         ns = message[3]
@@ -233,41 +184,50 @@ class NmeaParser(object):
         ew = message[5]
 
         if lat != '' and lon != '':
-            i.lat_dec = self.nmea_coord_to_dec_deg(lat, ns)
-            i.lon_dec = self.nmea_coord_to_dec_deg(lon, ew)
+            inc.lat_dec = nmea_coord_to_dec_deg(lat, ns)
+            inc.lon_dec = nmea_coord_to_dec_deg(lon, ew)
 
         # fix_type 0 = None
         # fix_type 1 = GPS
         # fix_type 2 = DPGS
-        i.fix_type = int(message[6])
+        inc.fix_type = int(message[6])
 
         if message[9] != '':
-            i.alt = float(message[9])
+            inc.alt = float(message[9])
         if message[11] != '':
-            i.height_wgs84 = float(message[11])
+            inc.height_wgs84 = float(message[11])
 
         self.check_for_complete_tpv_set(cmd)
 
     def parse_GPGSA(self, message):
         message = message.split(',')
-        i = self.incoming_tpv
+        inc = self.incoming_tpv
 
         cmd = message[0]
 
-        i.forced = (message[1] == 'M')
+        inc.forced = (message[1] == 'M')
 
         # fix_dim:
         # 0 - None
         # 1 - 2d
         # 2 - 3d
-        i.fix_dim = int(message[2])
+        inc.fix_dim = int(message[2])
+
+        for prn in message[3:15]:
+            try:
+                prn = int(prn)
+            except ValueError:
+                continue
+
+            if prn in self.satellites:
+                self.satellites[prn].used = True
 
         if message[15] != '':
-            i.pdop = float(message[15])
+            inc.pdop = float(message[15])
         if message[16] != '':
-            i.hdop = float(message[16])
+            inc.hdop = float(message[16])
         if message[17] != '':
-            i.vdop = float(message[17])
+            inc.vdop = float(message[17])
 
         self.check_for_complete_tpv_set(cmd)
         # TODO: Parse GPVTG
@@ -287,7 +247,7 @@ class NmeaParser(object):
 
         # We'll reset our state on msg_idx == 1
         if msg_idx == 1:
-            self.incoming_gsvs = []
+            self.incoming_gsvs = {}
 
         # Grab satellites in blocks of four
         for i in range(4, len(message), 4):
@@ -300,15 +260,26 @@ class NmeaParser(object):
                 continue
 
             sat = Satellite(prn, elevation, azimuth, snr)
-            self.incoming_gsvs.append(sat)
+            self.incoming_gsvs[int(prn)] = sat
 
+        # Stop if we're not on the last message
         if msg_idx != num_msgs:
             return
 
         if sat_count != len(self.incoming_gsvs):
-            self.gsvs = []
-            raise ValueError("Didn't get expected number of satellites!")
+            self.incoming_gsvs = {}
+            print "Didn't get expected number of satellites!"
+            print "Expected %d, got %d" % (sat_count, len(self.incoming_gsvs))
         else:
+            # Copy over 'used' attribute
+            for (prn, sat) in self.satellites.items():
+                if prn not in self.incoming_gsvs:
+                    continue
+                self.incoming_gsvs[prn].used = self.satellites[prn].used
+
             self.satellites = self.incoming_gsvs
             self.last_satellites = datetime.now()
-            self.gsvs = []
+            self.incoming_gsvs = {}
+
+            for sat in self.satellites.values():
+                print '>', sat
