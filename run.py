@@ -1,50 +1,34 @@
 #!/usr/bin/env python
 import sys
-import fixated
-import serial
+import time
 import logging
+
+import tornado.ioloop
+import tornado.web
+
+import fixated
 #import simplekml
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    np = fixated.nmea.NmeaParser(True)
 
-    ser = serial.Serial('/dev/ttyUSB0', 4800)
-    line = ser.readline()
+    try:
+        port = sys.argv[1]
+        baud = int(sys.argv[2])
+    except (IndexError, ValueError):
+        print 'Usage: %s port baud'
+        sys.exit(1)
+
+    np = fixated.SerialNmeaParser(port, baud)
+    np.start()
 
     try:
         while True:
-            line = ser.readline()
-            np.parse(line)
+            time.sleep(1)
     except KeyboardInterrupt:
-        pass
+        np.stop()
 
-    '''
-    fp = open(sys.argv[1])
-    for line in fp.readlines():
-        np.parse(line)
-
-    fp.close()
-
-    coords = []
-    for tpv in np.tpvs:
-        print tpv
-        coords.append((tpv.lon_dec, tpv.lat_dec))
-
-    kml = simplekml.Kml()
-    kml.newlinestring(coords=coords)
-    kml.save('out.kml')
-
-    print np.seen_cmds
-    print np.tpv_cmds
-
-    print len(np.parsing_errors)
-
-    for (line, err, tb) in np.parsing_errors:
-        print err, '>', line
-        print tb
-        print '-' * 70
-    '''
+    np.join()
 
 if __name__ == '__main__':
     main()

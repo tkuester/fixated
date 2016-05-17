@@ -49,8 +49,6 @@ class NmeaParser(object):
             self.incoming_tpv = TPV()
             self.lgr.info(str(self.latest_tpv))
 
-        # TODO: Last valid TPV
-
     def parse(self, line):
         # Strip, and skip empty lines
         line = line.strip()

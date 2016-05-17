@@ -48,10 +48,16 @@ class TPV(object):
     def __repr__(self):
         if self.lat_dec is None or self.lon_dec is None:
             return 'TPV<ll=None, ts=%s>' % (self.ts)
-        return 'TPV<ll=(%.6f, %.6f), ts=%s, vel=%s>' % (
-                self.lat_dec,
-                self.lon_dec,
-                self.ts, self.vel_knots)
+        return 'TPV<ll=(%.6f, %.6f),\n' \
+               '    ts=%s,\n'           \
+               '    vel=%s, ang=%s,\n'  \
+               '    hdop=%s, vdop=%s, pdop=%s,\n' \
+               '    fix=%s,%s,%s,%s>' % (
+                self.lat_dec, self.lon_dec,
+                self.ts,
+                self.vel_knots, self.vel_deg,
+                self.hdop, self.vdop, self.pdop,
+                self.fix_type, self.fix_dim, self.forced, self.warn)
 
 class Satellite(object):
     def __init__(self, prn, elevation, azimuth, snr):
