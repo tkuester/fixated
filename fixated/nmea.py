@@ -16,7 +16,7 @@ class NmeaParser(object):
 
         self.satellites = {}
         self.last_satellites = datetime.fromtimestamp(0)
-        self.incoming_gsvs = []
+        self.incoming_gsvs = {}
 
         self.tpv_cmds = set()
         self.tpv_set_known = False
@@ -245,7 +245,7 @@ class NmeaParser(object):
 
         # We'll reset our state on msg_idx == 1
         if msg_idx == 1:
-            self.incoming_gsvs = {}
+            self.incoming_gsvs.clear()
 
         # Grab satellites in blocks of four
         for i in range(4, len(message), 4):
