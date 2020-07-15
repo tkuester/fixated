@@ -1,2 +1,2 @@
-import nmea
-from serial_parser import SerialNmeaParser
+from . import nmea
+from . serial_parser import SerialNmeaParser

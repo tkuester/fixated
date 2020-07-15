@@ -266,8 +266,8 @@ class NmeaParser(object):
 
         if sat_count != len(self.incoming_gsvs):
             self.incoming_gsvs = {}
-            print "Didn't get expected number of satellites!"
-            print "Expected %d, got %d" % (sat_count, len(self.incoming_gsvs))
+            self.lgr.debug("Didn't get expected number of satellites!")
+            self.lgr.debug("Expected %d, got %d" % (sat_count, len(self.incoming_gsvs)))
         else:
             # Copy over 'used' attribute
             for (prn, sat) in self.satellites.items():
@@ -280,4 +280,4 @@ class NmeaParser(object):
             self.incoming_gsvs = {}
 
             for sat in self.satellites.values():
-                print '>', sat
+                self.lgr.debug('> %s' % sat)

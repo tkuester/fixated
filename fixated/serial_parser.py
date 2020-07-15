@@ -1,5 +1,6 @@
 import threading
-from multiprocessing import Queue
+from queue import Queue
+
 import serial
 from .nmea import NmeaParser
 

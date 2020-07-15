@@ -11,7 +11,7 @@ def main():
         port = sys.argv[1]
         baud = int(sys.argv[2])
     except (IndexError, ValueError):
-        print 'Usage: %s port baud'
+        print('Usage: %s port baud' % sys.argv[0])
         sys.exit(1)
 
     np = fixated.SerialNmeaParser(port, baud)
