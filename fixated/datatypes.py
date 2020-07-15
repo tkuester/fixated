@@ -1,5 +1,4 @@
 from datetime import datetime
-import pytz
 
 class TPV(object):
     def __init__(self):
@@ -36,7 +35,7 @@ class TPV(object):
 
         try:
             self._ts = datetime(self.yr, self.mon, self.day, self.hr,
-                self.min, self.sec, tzinfo=pytz.UTC)
+                self.min, self.sec)
         except TypeError as e:
             self._ts = None
 
