@@ -105,7 +105,7 @@ class NmeaParser(object):
 
         try:
             return func(message)
-        except StandardError as e:
+        except Exception as e:
             msg = '%s\n%s' % (line, e)
             self.lgr.error(msg)
             self.lgr.error(traceback.format_exc())
