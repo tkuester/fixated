@@ -1,13 +1,8 @@
-#!/usr/bin/env python
 import sys
 import time
 import logging
 
-import tornado.ioloop
-import tornado.web
-
 import fixated
-#import simplekml
 
 def main():
     logging.basicConfig(level=logging.INFO)
