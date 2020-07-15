@@ -8,6 +8,7 @@ class TPV(object):
         self.height_wgs84 = None
 
         self.vel_knots = None
+        self.vel_deg = None
 
         self.hdop = None
         self.vdop = None
