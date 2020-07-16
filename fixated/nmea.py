@@ -40,8 +40,6 @@ class NmeaParser(object):
         ts = time.monotonic()
         tdel = (ts - self.last_msg_ts)
 
-        name = line.split(",")[0][1:]
-
         # Split into message and checksum
         _line = line.split('*')
         if len(_line) != 2:
@@ -63,6 +61,9 @@ class NmeaParser(object):
         if calced_csum != reported_csum:
             self.lgr.warn('Checksum Mismatch / %s / expected %02x', line, calced_csum)
             return False
+
+        message = message.split(',')
+        name = message[0][1:]
 
         self.lgr.debug('%0.3f - %s', tdel, line)
         if self.realtime:
@@ -91,7 +92,6 @@ class NmeaParser(object):
         #  - Hours may not be 0 filled, 1-3 characters
         #  - Minutes are 0 filled. (Otherwise, wat?)
         #  - We're past Y2K
-        message = message.split(',')
         inc = self.incoming_tpv
 
         cmd = message[0]
@@ -138,7 +138,6 @@ class NmeaParser(object):
         # - hdop is in GPGSA
         # - No one cares about DGPS
         # - Alt and Height are in M
-        message = message.split(',')
         inc = self.incoming_tpv
 
         cmd = message[0]
@@ -169,7 +168,6 @@ class NmeaParser(object):
             inc.height_wgs84 = float(message[11])
 
     def parse_GSA(self, message):
-        message = message.split(',')
         inc = self.incoming_tpv
 
         cmd = message[0]
@@ -191,14 +189,9 @@ class NmeaParser(object):
 
         (inc.pdop, inc.hdop, inc.vdop) = map(float, message[15:18])
 
-    def parse_VTG(self, message):
-        # TODO: Parse VTG
-        return
-
     def parse_GSV(self, message):
         # Assumptions:
         # - No duplicate nmea_id's
-        message = message.split(',')
 
         talker = message[0][1:3]
         (num_msgs, msg_idx, sat_count) = map(ion, message[1:4])
