@@ -183,18 +183,12 @@ class NmeaParser(object):
     def parse_GSV(self, message):
         # Assumptions:
         # - No duplicate nmea_id's
-
-        talker = message[0][1:3]
-        (num_msgs, msg_idx, sat_count) = map(ion, message[1:4])
+        message = map(ion, message[1:])
+        (num_msgs, msg_idx, sat_count) = message[0:3]
 
         # Grab satellites in blocks of four
-        for i in range(4, len(message), 4):
-            try:
-                fields = list(map(ion, message[i:i+4]))
-            except ValueError:
-                continue
-
-            (nmea_id, elevation, azimuth, snr) = fields
+        for i in range(3, len(message), 4):
+            (nmea_id, elevation, azimuth, snr) = message[i:i+4]
             if nmea_id is None or \
                 elevation is None or \
                 azimuth is None:
