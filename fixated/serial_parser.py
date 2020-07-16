@@ -15,8 +15,8 @@ class SerialNmeaParser(threading.Thread):
     def run(self):
         while not self.stopped:
             try:
-                line = self.fp.readline().strip().decode()
-            except UnicodeDecodeError:
+                line = self.fp.readline().strip().decode('ascii')
+            except ValueError:
                 continue
             self.nmea.parse(line)
 
