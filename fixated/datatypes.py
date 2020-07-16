@@ -30,6 +30,8 @@ class FAAMode(enum.Enum):
 
 class TPV(object):
     def __init__(self):
+        self.satellites = {}
+
         self.lat_dec = None
         self.lon_dec = None
         self.alt = None
@@ -60,6 +62,14 @@ class TPV(object):
         self.faa = None
 
         self._ts = None
+
+    def get_satellite(self, nmea_id):
+        sat = self.satellites.get(nmea_id)
+        if sat is None:
+            sat = Satellite(nmea_id)
+            self.satellites[nmea_id] = sat
+
+        return sat
 
     @property
     def ts(self):

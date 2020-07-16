@@ -13,23 +13,16 @@ class NmeaParser(object):
         self.realtime = realtime
         self.last_msg_ts = time.monotonic()
         self.msg_tdel = {}
-        self.satellites = {}
 
         self.incoming_tpv = TPV()
-
-    def get_satellite(self, nmea_id):
-        sat = self.satellites.get(nmea_id)
-        if sat is None:
-            sat = Satellite(nmea_id)
-            self.satellites[nmea_id] = sat
-
-        return sat
 
     def check_for_complete_tpv(self, cmd):
         if self.realtime:
             longest_msg = max(self.msg_tdel, key=self.msg_tdel.get)
             if longest_msg == cmd:
                 print(self.incoming_tpv)
+                for sat in self.incoming_tpv.satellites.values():
+                    print(' - %s' % sat)
                 self.incoming_tpv = TPV()
 
     def parse(self, line):
@@ -182,7 +175,7 @@ class NmeaParser(object):
             except ValueError:
                 continue
 
-            sat = self.get_satellite(nmea_id)
+            sat = inc.get_satellite(nmea_id)
             sat.used = True
 
         (inc.pdop, inc.hdop, inc.vdop) = map(float, message[15:18])
@@ -207,7 +200,7 @@ class NmeaParser(object):
                 azimuth is None:
                 continue
 
-            sat = self.get_satellite(nmea_id)
+            sat = self.incoming_tpv.get_satellite(nmea_id)
             sat.elevation = elevation
             sat.azimuth = azimuth
             sat.snr = snr
