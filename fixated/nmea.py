@@ -239,6 +239,7 @@ class NmeaParser(object):
         # - No duplicate PRN's
         message = message.split(',')
 
+        talker = message[0][1:3]
         num_msgs = int(message[1])
         msg_idx = int(message[2])
         sat_count = int(message[3])
@@ -257,7 +258,7 @@ class NmeaParser(object):
                 azimuth == '':
                 continue
 
-            sat = Satellite(prn, elevation, azimuth, snr)
+            sat = Satellite(talker, prn, elevation, azimuth, snr)
             self.incoming_gsvs[int(prn)] = sat
 
         # Stop if we're not on the last message

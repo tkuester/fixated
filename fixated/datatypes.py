@@ -60,7 +60,8 @@ class TPV(object):
                 self.fix_type, self.fix_dim, self.forced, self.warn)
 
 class Satellite(object):
-    def __init__(self, prn, elevation, azimuth, snr):
+    def __init__(self, talker, prn, elevation, azimuth, snr):
+        self.talker = talker
         self.prn = prn
         self.elevation = int(elevation.strip())
         self.azimuth = int(azimuth.strip())
