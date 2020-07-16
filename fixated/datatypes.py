@@ -127,8 +127,7 @@ class Satellite(object):
         return self.__repr__()
 
     def __repr__(self):
-        return 'Satellite<talker=%s, nmea_id=%s, elevation=%d, azimuth=%d, snr=%s, used=%s>' % (
-                self.talker,
+        return 'Satellite<nmea_id=%s, elevation=%d, azimuth=%d, snr=%s, used=%s>' % (
                 self.nmea_id,
                 self.elevation,
                 self.azimuth,
