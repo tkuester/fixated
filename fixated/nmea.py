@@ -112,7 +112,7 @@ class NmeaParser(object):
             if self.collect_errors:
                 self.parsing_errors.append((line, e, traceback.format_exc()))
 
-    def parse_GPRMC(self, message):
+    def parse_RMC(self, message):
         # Assumptions:
         #  - Lat and Lon format: HHMM.MMM
         #  - Hours may not be 0 filled, 1-3 characters
@@ -158,7 +158,7 @@ class NmeaParser(object):
 
         self.check_for_complete_tpv_set(cmd)
 
-    def parse_GPGGA(self, message):
+    def parse_GGA(self, message):
         # Assumpions:
         # - lat / lon / time the same as GPRMC
         # - num_sats is the same as GPGSV
@@ -197,7 +197,7 @@ class NmeaParser(object):
 
         self.check_for_complete_tpv_set(cmd)
 
-    def parse_GPGSA(self, message):
+    def parse_GSA(self, message):
         message = message.split(',')
         inc = self.incoming_tpv
 
@@ -231,7 +231,7 @@ class NmeaParser(object):
         # TODO: Parse GPVTG
         # TODO: Skip empty lines
 
-    def parse_GPGSV(self, message):
+    def parse_GSV(self, message):
         # Assumptions:
         # - GSV starts at 1, and ends at N
         # - Other GSV messages can come out of order
