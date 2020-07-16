@@ -1,4 +1,32 @@
+import enum
 from datetime import datetime
+
+class FixDimension(enum.Enum):
+    NONE    = 1
+    TWO_D   = 2
+    THREE_D = 3
+
+class FixQuality(enum.Enum):
+    NOT_AVAIL  = 0
+    GPS_FIX    = 1
+    DGPS_FIX   = 2
+    PPS_FIX    = 3
+    RTK        = 4
+    RTK_FLOAT  = 5
+    ESTIMATED  = 6
+    MANUAL     = 7
+    SIMULATION = 8
+
+class FAAMode(enum.Enum):
+    NOT_VALID    = 'N'
+    SIMULATED    = 'S'
+    MANUAL       = 'M'
+    ESTIMATED    = 'E'
+    AUTONOMOUS   = 'A'
+    DIFFERENTIAL = 'D'
+    RTK_INT      = 'R'
+    RTK_FLOAT    = 'F'
+    PRECISE      = 'P'
 
 class TPV(object):
     def __init__(self):
@@ -14,7 +42,7 @@ class TPV(object):
         self.vdop = None
         self.pdop = None
 
-        self.fix_type = None
+        self.fix_quality = None
         self.fix_dim = None
         self.forced = None
         self.warn = None
@@ -26,6 +54,10 @@ class TPV(object):
         self.day = None
         self.mon = None
         self.yr = None
+
+        self.mag_dev = None
+
+        self.faa = None
 
         self._ts = None
 
@@ -52,12 +84,14 @@ class TPV(object):
                '    ts=%s,\n'           \
                '    vel=%s, ang=%s,\n'  \
                '    hdop=%s, vdop=%s, pdop=%s,\n' \
-               '    fix=%s,%s,%s,%s>' % (
+               '    fix_quality=%s,\n' \
+               '    fix_dim=%s,\n' \
+               '    faa=%s,forced=%s,warn=%s>' % (
                 self.lat_dec, self.lon_dec,
                 self.ts,
                 self.vel_knots, self.vel_deg,
                 self.hdop, self.vdop, self.pdop,
-                self.fix_type, self.fix_dim, self.forced, self.warn)
+                self.fix_quality, self.fix_dim, self.faa, self.forced, self.warn)
 
 class Satellite(object):
     __slots__ = ['nmea_id', 'elevation', 'azimuth', 'used', 'snr']

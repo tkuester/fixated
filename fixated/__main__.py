@@ -5,7 +5,7 @@ import logging
 import fixated
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     try:
         port = sys.argv[1]
