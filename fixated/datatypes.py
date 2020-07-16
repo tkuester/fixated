@@ -80,8 +80,17 @@ class TPV(object):
     def __repr__(self):
         if self.lat_dec is None or self.lon_dec is None:
             return 'TPV<ll=None, ts=%s>' % (self.ts)
+
+        alt = None
+        height_wgs84 = None
+        if self.alt:
+            alt = '%.1f' % self.alt
+        if self.height_wgs84:
+            height_wgs84 = '%.1f' % self.height_wgs84
+
         return 'TPV<ll=(%.6f, %.6f),\n' \
                '    ts=%s,\n'           \
+               '    alt=%sm, height_wgs84=%sm,\n' \
                '    vel=%s, ang=%s,\n'  \
                '    hdop=%s, vdop=%s, pdop=%s,\n' \
                '    fix_quality=%s,\n' \
@@ -89,6 +98,7 @@ class TPV(object):
                '    faa=%s,forced=%s,warn=%s>' % (
                 self.lat_dec, self.lon_dec,
                 self.ts,
+                alt, height_wgs84,
                 self.vel_knots, self.vel_deg,
                 self.hdop, self.vdop, self.pdop,
                 self.fix_quality, self.fix_dim, self.faa, self.forced, self.warn)

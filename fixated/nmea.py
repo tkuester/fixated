@@ -162,10 +162,8 @@ class NmeaParser(object):
         except ValueError:
             inc.fix_quality = FixQuality.NOT_AVAIL
 
-        if message[9] != '':
-            inc.alt = float(message[9])
-        if message[11] != '':
-            inc.height_wgs84 = float(message[11])
+        inc.alt = flon(message[9])
+        inc.height_wgs84 = flon(message[11])
 
     def parse_GSA(self, message):
         inc = self.incoming_tpv
