@@ -60,30 +60,32 @@ class TPV(object):
                 self.fix_type, self.fix_dim, self.forced, self.warn)
 
 class Satellite(object):
-    def __init__(self, talker, prn, elevation, azimuth, snr):
-        self.talker = talker
-        self.prn = prn
-        self.elevation = int(elevation.strip())
-        self.azimuth = int(azimuth.strip())
-        self.used = False
+    __slots__ = ['nmea_id', 'elevation', 'azimuth', 'used', 'snr']
 
-        try:
-            self.snr = int(snr.strip())
-            self.tracked = True
-        except ValueError as e:
-            if snr.strip() in ['', None]:
-                self.tracked = False
-                self.snr = None
-            else:
-                raise e
+    def __init__(self, nmea_id, elevation=None, azimuth=None, snr=None):
+        self.nmea_id = nmea_id
+        self.elevation = elevation
+        self.azimuth = azimuth
+        self.snr = snr
+        self.used = False
 
     def __str__(self):
         return self.__repr__()
 
     def __repr__(self):
-        return 'Satellite<prn=%s, elevation=%d, azimuth=%d, snr=%s, used=%s>' % (
-                self.prn,
+        return 'Satellite<talker=%s, nmea_id=%s, elevation=%d, azimuth=%d, snr=%s, used=%s>' % (
+                self.talker,
+                self.nmea_id,
                 self.elevation,
                 self.azimuth,
                 self.snr,
                 self.used)
+
+    def __eq__(self, other):
+        if not isinstance(other, Satellite):
+            return False
+
+        return self.nmea_id == other.nmea_id
+
+    def __hash__(self):
+        return self.nmea_id
