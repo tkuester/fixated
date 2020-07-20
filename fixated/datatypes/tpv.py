@@ -1,32 +1,6 @@
-import enum
 from datetime import datetime
 
-class FixDimension(enum.Enum):
-    NONE    = 1
-    TWO_D   = 2
-    THREE_D = 3
-
-class FixQuality(enum.Enum):
-    NOT_AVAIL  = 0
-    GPS_FIX    = 1
-    DGPS_FIX   = 2
-    PPS_FIX    = 3
-    RTK        = 4
-    RTK_FLOAT  = 5
-    ESTIMATED  = 6
-    MANUAL     = 7
-    SIMULATION = 8
-
-class FAAMode(enum.Enum):
-    NOT_VALID    = 'N'
-    SIMULATED    = 'S'
-    MANUAL       = 'M'
-    ESTIMATED    = 'E'
-    AUTONOMOUS   = 'A'
-    DIFFERENTIAL = 'D'
-    RTK_INT      = 'R'
-    RTK_FLOAT    = 'F'
-    PRECISE      = 'P'
+from .satellite import Satellite
 
 class TPV(object):
     def __init__(self):
@@ -113,32 +87,3 @@ class TPV(object):
                 self.hdop, self.vdop, self.pdop,
                 self.fix_quality, self.fix_dim, self.faa, self.forced, self.warn)
 
-class Satellite(object):
-    __slots__ = ['nmea_id', 'elevation', 'azimuth', 'used', 'snr']
-
-    def __init__(self, nmea_id, elevation=None, azimuth=None, snr=None):
-        self.nmea_id = nmea_id
-        self.elevation = elevation
-        self.azimuth = azimuth
-        self.snr = snr
-        self.used = False
-
-    def __str__(self):
-        return self.__repr__()
-
-    def __repr__(self):
-        return 'Satellite<nmea_id=%s, elevation=%s, azimuth=%s, snr=%s, used=%s>' % (
-                self.nmea_id,
-                self.elevation,
-                self.azimuth,
-                self.snr,
-                self.used)
-
-    def __eq__(self, other):
-        if not isinstance(other, Satellite):
-            return False
-
-        return self.nmea_id == other.nmea_id
-
-    def __hash__(self):
-        return self.nmea_id
