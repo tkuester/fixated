@@ -183,7 +183,7 @@ class NmeaParser(object):
     def parse_GSV(self, message):
         # Assumptions:
         # - No duplicate nmea_id's
-        message = map(ion, message[1:])
+        message = list(map(ion, message[1:]))
         (num_msgs, msg_idx, sat_count) = message[0:3]
 
         # Grab satellites in blocks of four
