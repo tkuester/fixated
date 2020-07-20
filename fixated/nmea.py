@@ -104,7 +104,10 @@ class NmeaParser(object):
 
         if found_it:
             print(self.incoming_tpv)
-            for sat in self.incoming_tpv.satellites.values():
+            sats = sorted(self.incoming_tpv.satellites.values(),
+                          key=lambda x: x.snr or -1000,
+                          reverse=True)
+            for sat in sats:
                 print(' - %s' % sat)
             self.incoming_tpv = TPV()
 
