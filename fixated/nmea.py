@@ -1,7 +1,7 @@
+import time
+from datetime import datetime
 import traceback
 import logging
-from datetime import datetime
-import time
 
 from .util import nmea_coord_to_dec_deg, ion, flon
 from .datatypes import TPV, Satellite, FixDimension, FixQuality, FAAMode
@@ -14,18 +14,16 @@ class NmeaParser(object):
         self.last_msg_ts = time.monotonic()
         self.msg_tdel = {}
 
+        self.last_cmd = None
+        self.msg_lock = False
+
         self.incoming_tpv = TPV()
 
-    def check_for_complete_tpv(self, cmd):
-        if self.realtime:
-            longest_msg = max(self.msg_tdel, key=self.msg_tdel.get)
-            if longest_msg == cmd:
-                print(self.incoming_tpv)
-                for sat in self.incoming_tpv.satellites.values():
-                    print(' - %s' % sat)
-                self.incoming_tpv = TPV()
-
     def parse(self, line):
+        '''
+        Assumptions:
+         - Messages will always be in the same order
+        '''
         # Skip messages that don't start with $
         if not line.startswith('$'):
             return
@@ -64,20 +62,51 @@ class NmeaParser(object):
             self.msg_tdel[name] = tdel
 
         # Find appropriate parsing function (if it exists)
+        ret = False
         func = getattr(self, 'parse_%s' % name[2:], None)
-        if func is None:
-            return False
-
-        try:
-            func(message)
-        except Exception as e:
-            self.lgr.error('%s\n%s', line, e)
-            self.lgr.error(traceback.format_exc())
-            return False
+        if func:
+            try:
+                func(message)
+                ret = True
+            except Exception as e:
+                self.lgr.error('%s\n%s', line, e)
+                self.lgr.error(traceback.format_exc())
+                ret = False
 
         self.check_for_complete_tpv(name)
 
-        return True
+        return ret
+
+    def check_for_complete_tpv(self, cmd):
+        '''
+        Assumptions:
+         - 1 Hz
+        '''
+        found_it = False
+
+        if self.realtime:
+            if not self.msg_lock:
+                longest_msg = max(self.msg_tdel, key=self.msg_tdel.get)
+                if len(self.msg_tdel) < 2 \
+                    or self.msg_tdel.get(longest_msg, 0) < 0.100:
+                    pass
+                elif longest_msg == cmd:
+                    self.lgr.debug("Got msg_lock! First sentence: %s", cmd)
+                    self.lgr.debug("Last sentence: %s", self.last_cmd)
+                    self.msg_lock = True
+                    found_it = True
+
+                if not self.msg_lock:
+                    self.lgr.debug("Not this one: %s", cmd)
+                    self.last_cmd = cmd
+            else:
+                found_it = (cmd == self.last_cmd)
+
+        if found_it:
+            print(self.incoming_tpv)
+            for sat in self.incoming_tpv.satellites.values():
+                print(' - %s' % sat)
+            self.incoming_tpv = TPV()
 
     def parse_RMC(self, message):
         # Assumptions:
