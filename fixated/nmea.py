@@ -1,77 +1,85 @@
 import time
-from datetime import datetime
-import traceback
+from datetime import datetime as dt
 import logging
+
+try:
+    import ntpdshm
+except ImportError:
+    ntpdshm = None
 
 from .util import nmea_coord_to_dec_deg, ion, flon
 from .datatypes import TPV, Satellite, FixDimension, FixQuality, FAAMode
 
+class NmeaError(ValueError):
+    pass
+
 class NmeaParser(object):
-    def __init__(self, realtime=True):
+    def __init__(self):
         self.lgr = logging.getLogger(self.__class__.__name__)
 
-        self.realtime = realtime
-        self.last_msg_ts = time.monotonic()
+        self.last_msg_ts = None
         self.msg_tdel = {}
 
         self.last_cmd = None
-        self.msg_lock = False
+        self.rmc_count = 0
 
         self.incoming_tpv = TPV()
+        self.parsers = {
+            'RMC': self.parse_RMC,
+            'GGA': self.parse_GGA,
+            'GSA': self.parse_GSA,
+            'GSV': self.parse_GSV,
+        }
+
+        self.shm = None
+        if ntpdshm:
+            try:
+                self.shm = ntpdshm.NtpdShm(unit=0)
+            except OSError:
+                self.shm = None
 
     def parse(self, line):
         '''
         Assumptions:
          - Messages will always be in the same order
         '''
-        # Skip messages that don't start with $
-        if not line.startswith('$'):
-            return
-
-        ts = time.monotonic()
-        tdel = (ts - self.last_msg_ts)
-
         # Split into message and checksum
-        _line = line.split('*')
-        if len(_line) != 2:
+        try:
+            (message, reported_csum) = line.split('*')
+        except ValueError:
             return False
-        (message, reported_csum) = _line
+
+        message = message.split(',')
+        name = message[0]
+        msg_type = name[3:]
+        if msg_type not in self.parsers:
+            return False
         
         # Convert the checksum from string to int
         try:
             reported_csum = int(reported_csum, 16)
-        except ValueError as e:
-            self.lgr.warn('Unable to parse checksum for line', line)
+        except ValueError:
             return False
 
         # Calculate the checksum (characters after $ sign)
         # Dump if the line doesn't match
-        calced_csum = 0
-        for char in message[1:]:
-            calced_csum ^= ord(char)
-        if calced_csum != reported_csum:
-            self.lgr.warn('Checksum Mismatch / %s / expected %02x', line, calced_csum)
-            return False
+        #calced_csum = 0
+        #for char in message[1:]:
+        #    calced_csum ^= ord(char)
+        #if calced_csum != reported_csum:
+        #    raise NmeaError("Bad checksum")
 
-        message = message.split(',')
-        name = message[0][1:]
-
-        self.lgr.debug('%0.3f - %s', tdel, line)
-        if self.realtime:
-            self.last_msg_ts = ts
-            self.msg_tdel[name] = tdel
+        ts = time.monotonic()
+        if self.last_msg_ts:
+            self.msg_tdel[name] = (ts - self.last_msg_ts)
+        self.last_msg_ts = ts
 
         # Find appropriate parsing function (if it exists)
-        ret = False
-        func = getattr(self, 'parse_%s' % name[2:], None)
-        if func:
-            try:
-                func(message)
-                ret = True
-            except Exception as e:
-                self.lgr.error('%s\n%s', line, e)
-                self.lgr.error(traceback.format_exc())
-                ret = False
+        try:
+            self.parsers[msg_type](message)
+            ret = True
+        except Exception as exc:
+            raise NmeaError("Error parsing %s" % name) from exc
 
         self.check_for_complete_tpv(name)
 
@@ -84,31 +92,30 @@ class NmeaParser(object):
         '''
         found_it = False
 
-        if self.realtime:
-            if not self.msg_lock:
-                longest_msg = max(self.msg_tdel, key=self.msg_tdel.get)
-                if len(self.msg_tdel) < 2 \
-                    or self.msg_tdel.get(longest_msg, 0) < 0.100:
-                    pass
-                elif longest_msg == cmd:
-                    self.lgr.debug("Got msg_lock! First sentence: %s", cmd)
-                    self.lgr.debug("Last sentence: %s", self.last_cmd)
-                    self.msg_lock = True
-                    found_it = True
+        if len(self.msg_tdel) < 2:
+            return
 
-                if not self.msg_lock:
-                    self.lgr.debug("Not this one: %s", cmd)
-                    self.last_cmd = cmd
+        if not self.last_cmd:
+            longest_msg = max(self.msg_tdel, key=self.msg_tdel.get)
+            tdel = self.msg_tdel[longest_msg]
+            self.lgr.debug("Longest message: %s (%s)", longest_msg, self.msg_tdel[longest_msg])
+
+            if self.rmc_count >= 2 and longest_msg == cmd:
+                self.lgr.debug("Got msg_lock! First sentence: %s", cmd)
+                self.last_cmd = cmd
+                found_it = True
             else:
-                found_it = (cmd == self.last_cmd)
+                self.lgr.debug("Not this one: %s", cmd)
+        else:
+            found_it = (cmd == self.last_cmd)
 
         if found_it:
             print(self.incoming_tpv)
             sats = sorted(self.incoming_tpv.satellites.values(),
                           key=lambda x: x.snr or -1000,
                           reverse=True)
-            for sat in sats:
-                print(' - %s' % sat)
+            #for sat in sats:
+            #    print(' - %s' % sat)
             self.incoming_tpv = TPV()
 
     def parse_RMC(self, message):
@@ -121,11 +128,11 @@ class NmeaParser(object):
 
         cmd = message[0]
 
-        time = message[1]
-        if time != '':
-            inc.hr = int(time[0:2])
-            inc.min = int(time[2:4])
-            inc.sec = int(time[4:6])
+        _time = message[1]
+        if _time != '':
+            inc.hr = int(_time[0:2])
+            inc.min = int(_time[2:4])
+            inc.sec = int(_time[4:6])
 
         inc.warn = message[2] != 'A'
 
@@ -152,9 +159,16 @@ class NmeaParser(object):
         # message[11] = mag_dev E/W
 
         try:
-            inc.faa = FAAMode(ion(message[12]))
+            inc.faa = FAAMode(message[12])
         except ValueError:
             inc.faa = FAAMode.NOT_VALID
+
+        if not inc.warn and self.shm and cmd == '$GPRMC':
+            dts = dt(inc.yr, inc.mon, inc.day, inc.hr, inc.min, inc.sec)
+            ts = time.mktime(dts.utctimetuple())
+            self.shm.update(ts, precision=-2)
+
+        self.rmc_count += 1
 
     def parse_GGA(self, message):
         # Assumpions:
@@ -167,11 +181,11 @@ class NmeaParser(object):
 
         cmd = message[0]
 
-        time = message[1]
-        if time != '':
-            inc.hr = int(time[0:2])
-            inc.min = int(time[2:4])
-            inc.sec = int(time[4:6])
+        _time = message[1]
+        if _time:
+            inc.hr = int(_time[0:2])
+            inc.min = int(_time[2:4])
+            inc.sec = int(_time[4:6])
 
         lat = message[2]
         ns = message[3]
@@ -183,12 +197,12 @@ class NmeaParser(object):
             inc.lon_dec = nmea_coord_to_dec_deg(lon, ew)
 
         try:
-            inc.fix_quality = FixQuality(ion(message[6]))
+            inc.fix_quality = FixQuality(message[6])
         except ValueError:
             inc.fix_quality = FixQuality.NOT_AVAIL
 
-        inc.alt = flon(message[9])
-        inc.height_wgs84 = flon(message[11])
+        inc.alt = message[9]
+        inc.height_wgs84 = message[11]
 
     def parse_GSA(self, message):
         inc = self.incoming_tpv
@@ -197,7 +211,7 @@ class NmeaParser(object):
 
         inc.forced = (message[1] == 'M')
         try:
-            inc.fix_dim = FixDimension(ion(message[2]))
+            inc.fix_dim = FixDimension(message[2])
         except ValueError:
             inc.fix_dim = FixDimension.NONE
 
@@ -205,12 +219,12 @@ class NmeaParser(object):
             try:
                 nmea_id = int(nmea_id)
             except ValueError:
-                continue
+                return
 
             sat = inc.get_satellite(nmea_id)
             sat.used = True
 
-        (inc.pdop, inc.hdop, inc.vdop) = map(float, message[15:18])
+        (inc.pdop, inc.hdop, inc.vdop) = message[15:18]
 
     def parse_GSV(self, message):
         # Assumptions:
@@ -224,7 +238,7 @@ class NmeaParser(object):
             if nmea_id is None or \
                 elevation is None or \
                 azimuth is None:
-                continue
+                return
 
             sat = self.incoming_tpv.get_satellite(nmea_id)
             sat.elevation = elevation

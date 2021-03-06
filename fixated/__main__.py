@@ -1,5 +1,4 @@
 import sys
-import time
 import logging
 
 import fixated
@@ -15,15 +14,11 @@ def main():
         sys.exit(1)
 
     np = fixated.SerialNmeaParser(port, baud)
-    np.start()
-
     try:
         while True:
-            time.sleep(1)
+            np.run()
     except KeyboardInterrupt:
         np.stop()
-
-    np.join()
 
 if __name__ == '__main__':
     main()
