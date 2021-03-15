@@ -10,7 +10,7 @@ setup(
     author="Tim K",
     author_email="tpkuester@gmail.com",
     setup_requires=["setuptools_scm"],
-    install_requires=["pyserial"],
+    install_requires=["pyserial>=3.0"],
     description="A simple GPS daemon",
     long_description=long_description,
     long_description_content_type="text/markdown",
