@@ -5,15 +5,14 @@ import serial
 from .nmea import NmeaParser
 
 class SerialNmeaParser(NmeaParser):
-    def __init__(self, tty, baud=9600):
-        super().__init__()
+    def __init__(self, tpv_queue, tty, baud=9600):
+        super().__init__(tpv_queue, tty)
 
-        self.tty = tty
         self.baud = baud
         self.buff = ''
 
-        self.lgr.info("Opening %s @ %s baud", self.tty, self.baud)
-        self.ser = serial.Serial(self.tty, self.baud)
+        self.lgr.info("Opening %s @ %s baud", self.name, self.baud)
+        self.ser = serial.Serial(tty, self.baud)
 
     def run(self):
         while not self.stopped.is_set():

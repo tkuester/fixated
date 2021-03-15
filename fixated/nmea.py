@@ -15,10 +15,12 @@ class NmeaError(ValueError):
     pass
 
 class NmeaParser(threading.Thread):
-    def __init__(self):
+    def __init__(self, tpv_queue, name):
         super().__init__()
         self.lgr = logging.getLogger(self.__class__.__name__)
         self.stopped = threading.Event()
+        self.tpv_queue = tpv_queue
+        self.name = name
 
         self.last_msg_ts = None
         self.msg_tdel = {}
@@ -70,6 +72,8 @@ class NmeaParser(threading.Thread):
         except ValueError:
             return False
 
+        self.tpv_queue.put((self, line))
+
         # Calculate the checksum (characters after $ sign)
         # Dump if the line doesn't match
         #calced_csum = 0
@@ -118,12 +122,8 @@ class NmeaParser(threading.Thread):
             found_it = (cmd == self.last_cmd)
 
         if found_it:
-            self.lgr.info(self.incoming_tpv)
-            sats = sorted(self.incoming_tpv.satellites.values(),
-                          key=lambda x: x.snr or -1000,
-                          reverse=True)
-            for sat in sats:
-                self.lgr.info(' - %s' % sat)
+            #self.lgr.info(self.incoming_tpv)
+            self.tpv_queue.put((self, self.incoming_tpv))
             self.incoming_tpv = TPV()
 
     def parse_rmc(self, message):
