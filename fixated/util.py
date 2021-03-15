@@ -26,3 +26,9 @@ def ion(val):
         return int(val)
     except (ValueError, TypeError):
         return None
+
+def flon(val):
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return None
