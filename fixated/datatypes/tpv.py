@@ -2,7 +2,7 @@ from datetime import datetime
 
 from .satellite import Satellite
 
-class TPV(object):
+class TPV:
     def __init__(self):
         self.satellites = {}
 

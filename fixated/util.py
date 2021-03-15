@@ -20,3 +20,9 @@ def nmea_coord_to_dec_deg(coord, nsew):
     nsew = nsew.upper()
 
     return (degree + (minute / 60.0)) * (1 if nsew in ['N', 'E'] else -1)
+
+def ion(val):
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return None

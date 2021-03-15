@@ -1,4 +1,4 @@
-class Satellite(object):
+class Satellite:
     __slots__ = ['nmea_id', 'elevation', 'azimuth', 'used', 'snr']
 
     def __init__(self, nmea_id, elevation=None, azimuth=None, snr=None):

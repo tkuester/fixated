@@ -7,13 +7,13 @@ try:
 except ImportError:
     ntpdshm = None
 
-from .util import nmea_coord_to_dec_deg, ion, flon
-from .datatypes import TPV, Satellite, FixDimension, FixQuality, FAAMode
+from .util import nmea_coord_to_dec_deg, ion
+from .datatypes import TPV, FixDimension, FixQuality, FAAMode
 
 class NmeaError(ValueError):
     pass
 
-class NmeaParser(object):
+class NmeaParser:
     def __init__(self):
         self.lgr = logging.getLogger(self.__class__.__name__)
 
@@ -25,10 +25,10 @@ class NmeaParser(object):
 
         self.incoming_tpv = TPV()
         self.parsers = {
-            'RMC': self.parse_RMC,
-            'GGA': self.parse_GGA,
-            'GSA': self.parse_GSA,
-            'GSV': self.parse_GSV,
+            'RMC': self.parse_rmc,
+            'GGA': self.parse_gga,
+            'GSA': self.parse_gsa,
+            'GSV': self.parse_gsv,
         }
 
         self.shm = None
@@ -97,7 +97,6 @@ class NmeaParser(object):
 
         if not self.last_cmd:
             longest_msg = max(self.msg_tdel, key=self.msg_tdel.get)
-            tdel = self.msg_tdel[longest_msg]
             self.lgr.debug("Longest message: %s (%s)", longest_msg, self.msg_tdel[longest_msg])
 
             if self.rmc_count >= 2 and longest_msg == cmd:
@@ -114,11 +113,11 @@ class NmeaParser(object):
             sats = sorted(self.incoming_tpv.satellites.values(),
                           key=lambda x: x.snr or -1000,
                           reverse=True)
-            #for sat in sats:
-            #    print(' - %s' % sat)
+            for sat in sats:
+                print(' - %s' % sat)
             self.incoming_tpv = TPV()
 
-    def parse_RMC(self, message):
+    def parse_rmc(self, message):
         # Assumptions:
         #  - Lat and Lon format: HHMM.MMM
         #  - Hours may not be 0 filled, 1-3 characters
@@ -141,8 +140,8 @@ class NmeaParser(object):
         lon = message[5]
         ew = message[6]
 
-        inc.vel_knots = flon(message[7])
-        inc.vel_deg = flon(message[8])
+        inc.vel_knots = message[7]
+        inc.vel_deg = message[8]
 
         if lat != '' and lon != '':
             inc.lat_dec = nmea_coord_to_dec_deg(lat, ns)
@@ -170,7 +169,7 @@ class NmeaParser(object):
 
         self.rmc_count += 1
 
-    def parse_GGA(self, message):
+    def parse_gga(self, message):
         # Assumpions:
         # - lat / lon / time the same as GPRMC
         # - num_sats is the same as GPGSV
@@ -204,7 +203,7 @@ class NmeaParser(object):
         inc.alt = message[9]
         inc.height_wgs84 = message[11]
 
-    def parse_GSA(self, message):
+    def parse_gsa(self, message):
         inc = self.incoming_tpv
 
         cmd = message[0]
@@ -226,11 +225,11 @@ class NmeaParser(object):
 
         (inc.pdop, inc.hdop, inc.vdop) = message[15:18]
 
-    def parse_GSV(self, message):
+    def parse_gsv(self, message):
         # Assumptions:
         # - No duplicate nmea_id's
         message = list(map(ion, message[1:]))
-        (num_msgs, msg_idx, sat_count) = message[0:3]
+        #(num_msgs, msg_idx, sat_count) = message[0:3]
 
         # Grab satellites in blocks of four
         for i in range(3, len(message), 4):
