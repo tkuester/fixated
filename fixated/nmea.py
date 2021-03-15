@@ -124,14 +124,16 @@ class NmeaParser:
         #  - Minutes are 0 filled. (Otherwise, wat?)
         #  - We're past Y2K
         inc = self.incoming_tpv
+        hour = minute = second = None
+        day = month = year = None
 
         cmd = message[0]
 
         _time = message[1]
         if _time != '':
-            inc.hr = int(_time[0:2])
-            inc.min = int(_time[2:4])
-            inc.sec = int(_time[4:6])
+            hour = int(_time[0:2])
+            minute = int(_time[2:4])
+            second = int(_time[4:6])
 
         inc.warn = message[2] != 'A'
 
@@ -149,9 +151,9 @@ class NmeaParser:
 
         date = message[9]
         if date != '':
-            inc.day = int(date[0:2])
-            inc.mon = int(date[2:4])
-            inc.yr = int(date[4:6]) + 2000
+            day = int(date[0:2])
+            month = int(date[2:4])
+            year = int(date[4:6]) + 2000
 
         # TODO: Mag Dev
         # message[10] = mag_dev degrees
@@ -162,10 +164,12 @@ class NmeaParser:
         except ValueError:
             inc.faa = FAAMode.NOT_VALID
 
+        if None in [year, month, day, hour, minute, second]:
+            return
+
+        inc.dt = dt(year, month, day, hour, minute, second)
         if not inc.warn and self.shm and cmd == '$GPRMC':
-            dts = dt(inc.yr, inc.mon, inc.day, inc.hr, inc.min, inc.sec)
-            ts = time.mktime(dts.utctimetuple())
-            self.shm.update(ts, precision=-2)
+            self.shm.update(inc.unix_ts, precision=-2)
 
         self.rmc_count += 1
 
@@ -181,11 +185,6 @@ class NmeaParser:
         cmd = message[0]
 
         _time = message[1]
-        if _time:
-            inc.hr = int(_time[0:2])
-            inc.min = int(_time[2:4])
-            inc.sec = int(_time[4:6])
-
         lat = message[2]
         ns = message[3]
         lon = message[4]

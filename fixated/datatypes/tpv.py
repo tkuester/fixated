@@ -1,4 +1,5 @@
-from datetime import datetime
+import time
+from datetime import datetime as dt
 
 from .satellite import Satellite
 
@@ -23,13 +24,7 @@ class TPV:
         self.forced = None
         self.warn = None
 
-        self.hr = None
-        self.min = None
-        self.sec = None
-
-        self.day = None
-        self.mon = None
-        self.yr = None
+        self.dt = None
 
         self.mag_dev = None
 
@@ -46,15 +41,18 @@ class TPV:
         return sat
 
     @property
-    def ts(self):
-        if self._ts is not None:
+    def coords(self):
+        return (self.lat_dec, self.lon_dec)
+
+    @property
+    def unix_ts(self):
+        if self._ts:
             return self._ts
 
-        try:
-            self._ts = datetime(self.yr, self.mon, self.day, self.hr,
-                self.min, self.sec)
-        except TypeError as e:
-            self._ts = None
+        if self.dt is None:
+            return None
+
+        self._ts = time.mktime(self.dt.utctimetuple())
 
         return self._ts
 
@@ -62,8 +60,13 @@ class TPV:
         return self.__repr__()
 
     def __repr__(self):
+        if self.dt is None:
+            ret_dt = None
+        else:
+            ret_dt = self.dt.isoformat()
+
         if self.lat_dec is None or self.lon_dec is None:
-            return 'TPV<ll=None, ts=%s>' % (self.ts)
+            return 'TPV<ll=None, dt=%s>' % (ret_dt)
 
         return 'TPV<ll=(%.6f, %.6f),\n' \
                '    ts=%s,\n'           \
@@ -74,7 +77,7 @@ class TPV:
                '    fix_dim=%s,\n' \
                '    faa=%s,forced=%s,warn=%s>' % (
                 self.lat_dec, self.lon_dec,
-                self.ts,
+                ret_dt,
                 self.alt, self.height_wgs84,
                 self.vel_knots, self.vel_deg,
                 self.hdop, self.vdop, self.pdop,
