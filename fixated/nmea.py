@@ -57,30 +57,25 @@ class NmeaParser(threading.Thread):
         # Split into message and checksum
         try:
             (message, reported_csum) = line.split('*')
+            reported_csum = int(reported_csum, 16)
         except ValueError:
             return False
+        
+        # Calculate the checksum (characters after $ sign)
+        # Dump if the line doesn't match
+        calced_csum = 0
+        for char in map(ord, message[1:]):
+            calced_csum ^= char
+        if calced_csum != reported_csum:
+            raise NmeaError("Bad checksum")
+
+        self.tpv_queue.put((self, line))
 
         message = message.split(',')
         name = message[0]
         msg_type = name[3:]
         if msg_type not in self.parsers:
             return False
-        
-        # Convert the checksum from string to int
-        try:
-            reported_csum = int(reported_csum, 16)
-        except ValueError:
-            return False
-
-        self.tpv_queue.put((self, line))
-
-        # Calculate the checksum (characters after $ sign)
-        # Dump if the line doesn't match
-        #calced_csum = 0
-        #for char in message[1:]:
-        #    calced_csum ^= ord(char)
-        #if calced_csum != reported_csum:
-        #    raise NmeaError("Bad checksum")
 
         ts = time.monotonic()
         if self.last_msg_ts:
