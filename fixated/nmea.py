@@ -218,10 +218,12 @@ class NmeaParser(threading.Thread):
             inc.fix_dim = FixDimension.NONE
 
         for nmea_id in message[3:15]:
+            if not nmea_id:
+                continue
             try:
                 nmea_id = int(nmea_id)
             except ValueError:
-                return
+                raise NmeaError("GSA: Invalid satellite PRN")
 
             sat = inc.get_satellite(nmea_id)
             sat.used = True
