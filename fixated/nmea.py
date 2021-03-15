@@ -1,6 +1,7 @@
 import time
 from datetime import datetime as dt
 import logging
+import threading
 
 try:
     import ntpdshm
@@ -13,9 +14,11 @@ from .datatypes import TPV, FixDimension, FixQuality, FAAMode
 class NmeaError(ValueError):
     pass
 
-class NmeaParser:
+class NmeaParser(threading.Thread):
     def __init__(self):
+        super().__init__()
         self.lgr = logging.getLogger(self.__class__.__name__)
+        self.stopped = threading.Event()
 
         self.last_msg_ts = None
         self.msg_tdel = {}
@@ -37,6 +40,12 @@ class NmeaParser:
                 self.shm = ntpdshm.NtpdShm(unit=0)
             except OSError:
                 self.shm = None
+
+    def stop(self):
+        self.stopped.set()
+
+    def run(self):
+        raise NotImplementedError()
 
     def parse(self, line):
         '''
@@ -109,12 +118,12 @@ class NmeaParser:
             found_it = (cmd == self.last_cmd)
 
         if found_it:
-            print(self.incoming_tpv)
+            self.lgr.info(self.incoming_tpv)
             sats = sorted(self.incoming_tpv.satellites.values(),
                           key=lambda x: x.snr or -1000,
                           reverse=True)
             for sat in sats:
-                print(' - %s' % sat)
+                self.lgr.info(' - %s' % sat)
             self.incoming_tpv = TPV()
 
     def parse_rmc(self, message):

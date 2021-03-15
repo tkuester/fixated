@@ -9,22 +9,29 @@ class SerialNmeaParser(NmeaParser):
         super().__init__()
 
         self.tty = tty
-        self.fp = serial.Serial(tty, baud)
+        self.baud = baud
         self.buff = ''
 
+        self.lgr.info("Opening %s @ %s baud", self.tty, self.baud)
+        self.ser = serial.Serial(self.tty, self.baud)
+
     def run(self):
-        while True:
-            (rd_fds, _, _) = select.select([self.fp], [], [], 10)
+        while not self.stopped.is_set():
+            (rd_fds, _, _) = select.select([self.ser], [], [], 1)
             if not rd_fds:
                 continue
 
             # pyserial's readline consumes an absurd amount of CPU...
-            self.buff += self.fp.read(self.fp.in_waiting).decode('ascii')
+            self.buff += self.ser.read(self.ser.in_waiting).decode('ascii')
             lines = self.buff.split('\n')
             for line in lines[:-1]:
                 self.parse(line)
 
             self.buff = lines[-1]
 
+        self.lgr.info("Shutting down")
+
     def stop(self):
-        self.fp.close()
+        super().stop()
+        if self.ser:
+            self.ser.close()
