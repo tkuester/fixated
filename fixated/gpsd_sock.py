@@ -143,8 +143,8 @@ class GpsdSocket(threading.Thread):
                 except socket.error:
                     sox.close()
 
-
-        for client in self.clients.keys():
+        clients = list(self.clients.keys())
+        for client in clients:
             self.client_disconnect(client, "Server shutting down")
 
     def stop(self):
