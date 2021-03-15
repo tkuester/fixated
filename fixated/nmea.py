@@ -14,6 +14,9 @@ from .datatypes import TPV, FixDimension, FixQuality, FAAMode
 class NmeaError(ValueError):
     pass
 
+class ChecksumError(NmeaError):
+    pass
+
 class NmeaParser(threading.Thread):
     def __init__(self, tpv_queue, name):
         super().__init__()
@@ -67,7 +70,7 @@ class NmeaParser(threading.Thread):
         for char in map(ord, message[1:]):
             calced_csum ^= char
         if calced_csum != reported_csum:
-            raise NmeaError("Bad checksum")
+            raise ChecksumError()
 
         self.tpv_queue.put((self, line))
 

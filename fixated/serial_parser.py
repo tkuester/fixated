@@ -2,14 +2,14 @@ import select
 
 import serial
 
-from .nmea import NmeaParser
+from .nmea import NmeaParser, NmeaError, ChecksumError
 
 class SerialNmeaParser(NmeaParser):
     def __init__(self, tpv_queue, tty, baud=9600):
         super().__init__(tpv_queue, tty)
 
         self.baud = baud
-        self.buff = ''
+        self.buff = b''
 
         self.lgr.info("Opening %s @ %s baud", self.name, self.baud)
         self.ser = serial.Serial(tty, self.baud)
@@ -21,10 +21,19 @@ class SerialNmeaParser(NmeaParser):
                 continue
 
             # pyserial's readline consumes an absurd amount of CPU...
-            self.buff += self.ser.read(self.ser.in_waiting).decode('ascii')
-            lines = self.buff.split('\n')
+            self.buff += self.ser.read(self.ser.in_waiting)
+
+            lines = self.buff.split(b'\n')
             for line in lines[:-1]:
-                self.parse(line)
+                try:
+                    self.parse(line.decode('ascii'))
+                except (UnicodeDecodeError, ChecksumError):
+                    # TODO: Alert on bad baud rate?
+                    continue
+                except NmeaError as exc:
+                    self.lgr.warn("Bad NMEA sentence: %s", line, exc_info=exc)
+                except Exception as exc:
+                    self.lgr.error("Unhandled exception: %s", line, exc_info=exc)
 
             self.buff = lines[-1]
 
