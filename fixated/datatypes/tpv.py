@@ -49,19 +49,25 @@ class TPV:
         jsn['class'] = 'TPV'
         jsn['device'] = name
         jsn['mode'] = int(self.fix_dim.value)
-        jsn['time'] = self.dt.isoformat() + 'Z'
+        if self.dt:
+            jsn['time'] = self.dt.isoformat() + 'Z'
         #jsn['ept'] = 0.1
-        jsn['lat'] = float(self.lat_dec)
-        jsn['lon'] = float(self.lon_dec)
-        jsn['alt'] = float(self.alt)
+        if self.lat_dec:
+            jsn['lat'] = float(self.lat_dec)
+        if self.lon_dec:
+            jsn['lon'] = float(self.lon_dec)
+        if self.alt:
+            jsn['alt'] = float(self.alt)
         if self.epx is not None:
             jsn['epx'] = float(self.epx)
         if self.epy is not None:
             jsn['epy'] = float(self.epy)
         if self.epv is not None:
             jsn['epv'] = float(self.epv)
-        jsn['track'] = float(self.vel_deg)
-        jsn['speed'] = float(self.vel_knots)
+        if self.vel_deg:
+            jsn['track'] = float(self.vel_deg)
+        if self.vel_knots:
+            jsn['speed'] = float(self.vel_knots) # TODO: Convert to m/s
         if self.mag_dev is not None:
             jsn['magvar'] = self.mag_dev
         #jsn['climb'] = 0.0
