@@ -8,7 +8,7 @@ try:
 except ImportError:
     ntpdshm = None
 
-from .util import nmea_coord_to_dec_deg, ion
+from .util import nmea_coord_to_dec_deg, ion, flon
 from .datatypes import TPV, FixDimension, FixQuality, FAAMode
 
 class NmeaError(ValueError):
@@ -31,12 +31,15 @@ class NmeaParser(threading.Thread):
         self.last_cmd = None
         self.rmc_count = 0
 
+        self.epx = self.epy = self.epv = None
+
         self.incoming_tpv = TPV()
         self.parsers = {
             'RMC': self.parse_rmc,
             'GGA': self.parse_gga,
             'GSA': self.parse_gsa,
             'GSV': self.parse_gsv,
+            'GBS': self.parse_gbs, # Occasional, preserve data
         }
 
         self.shm = None
@@ -121,6 +124,9 @@ class NmeaParser(threading.Thread):
 
         if found_it:
             #self.lgr.info(self.incoming_tpv)
+            self.incoming_tpv.epx = self.epx
+            self.incoming_tpv.epy = self.epy
+            self.incoming_tpv.epv = self.epv
             self.tpv_queue.put((self, self.incoming_tpv))
             self.incoming_tpv = TPV()
 
@@ -162,9 +168,9 @@ class NmeaParser(threading.Thread):
             month = int(date[2:4])
             year = int(date[4:6]) + 2000
 
-        # TODO: Mag Dev
-        # message[10] = mag_dev degrees
-        # message[11] = mag_dev E/W
+        inc.mag_dev = flon(message[10])
+        if inc.mag_dev and message[11].upper() == 'E':
+            inc.mag_dev *= -1
 
         try:
             inc.faa = FAAMode(message[12])
@@ -251,3 +257,6 @@ class NmeaParser(threading.Thread):
             sat.elevation = elevation
             sat.azimuth = azimuth
             sat.snr = snr
+
+    def parse_gbs(self, message):
+        (self.epx, self.epy, self.epv) = message[2:5]
