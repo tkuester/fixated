@@ -1,5 +1,6 @@
 import time
 from datetime import datetime as dt
+from collections import OrderedDict
 
 from .satellite import Satellite
 
@@ -39,6 +40,53 @@ class TPV:
             self.satellites[nmea_id] = sat
 
         return sat
+
+    def gpsd_tpv(self, name):
+        jsn = OrderedDict()
+        jsn['class'] = 'TPV'
+        jsn['device'] = name
+        jsn['mode'] = int(self.fix_dim.value)
+        jsn['time'] = self.dt.isoformat() + 'Z'
+        jsn['ept'] = 0.1
+        jsn['lat'] = float(self.lat_dec)
+        jsn['lon'] = float(self.lon_dec)
+        jsn['alt'] = self.alt
+        jsn['epx'] = 0.2
+        jsn['epy'] = 0.3
+        jsn['epv'] = 0.4
+        jsn['track'] = float(self.vel_deg)
+        jsn['speed'] = float(self.vel_knots)
+        jsn['climb'] = 0.0
+        jsn['eps'] = 0.5
+        jsn['epc'] = 0.6
+
+        return jsn
+
+    def gpsd_sky(self, name):
+        sky = OrderedDict()
+        sky['class'] = 'SKY'
+        sky['device'] = name
+        sky['xdop'] = 0.1
+        sky['ydop'] = 0.2
+        sky['vdop'] = 0.3
+        sky['tdop'] = 0.4
+        sky['hdop'] = 0.5
+        sky['gdop'] = 0.6
+        sky['pdop'] = 0.7
+
+        sats = []
+        for sat in self.satellites.values():
+            od = OrderedDict()
+            od['PRN'] = sat.nmea_id
+            od['el'] = sat.elevation
+            od['az'] = sat.azimuth
+            od['ss'] = sat.snr
+            od['used'] = sat.used
+            sats.append(od)
+
+        sky['satellites'] = sats
+
+        return sky
 
     @property
     def coords(self):
