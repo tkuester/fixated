@@ -19,6 +19,9 @@ class TPV:
         self.hdop = None
         self.vdop = None
         self.pdop = None
+        self.epx = None
+        self.epy = None
+        self.epv = None
 
         self.fix_quality = None
         self.fix_dim = None
@@ -47,18 +50,23 @@ class TPV:
         jsn['device'] = name
         jsn['mode'] = int(self.fix_dim.value)
         jsn['time'] = self.dt.isoformat() + 'Z'
-        jsn['ept'] = 0.1
+        #jsn['ept'] = 0.1
         jsn['lat'] = float(self.lat_dec)
         jsn['lon'] = float(self.lon_dec)
-        jsn['alt'] = self.alt
-        jsn['epx'] = 0.2
-        jsn['epy'] = 0.3
-        jsn['epv'] = 0.4
+        jsn['alt'] = float(self.alt)
+        if self.epx is not None:
+            jsn['epx'] = float(self.epx)
+        if self.epy is not None:
+            jsn['epy'] = float(self.epy)
+        if self.epv is not None:
+            jsn['epv'] = float(self.epv)
         jsn['track'] = float(self.vel_deg)
         jsn['speed'] = float(self.vel_knots)
-        jsn['climb'] = 0.0
-        jsn['eps'] = 0.5
-        jsn['epc'] = 0.6
+        if self.mag_dev is not None:
+            jsn['magvar'] = self.mag_dev
+        #jsn['climb'] = 0.0
+        #jsn['eps'] = 0.5
+        #jsn['epc'] = 0.6
 
         return jsn
 
@@ -66,13 +74,16 @@ class TPV:
         sky = OrderedDict()
         sky['class'] = 'SKY'
         sky['device'] = name
-        sky['xdop'] = 0.1
-        sky['ydop'] = 0.2
-        sky['vdop'] = float(self.vdop or 0.0)
-        sky['tdop'] = 0.4
-        sky['hdop'] = float(self.hdop or 0.0)
-        sky['gdop'] = 0.6
-        sky['pdop'] = float(self.pdop or 0.0)
+        #sky['xdop'] = 0.1
+        #sky['ydop'] = 0.2
+        if self.vdop:
+            sky['vdop'] = float(self.vdop)
+        #sky['tdop'] = 0.4
+        if self.hdop:
+            sky['hdop'] = float(self.hdop)
+        #sky['gdop'] = 0.6
+        if self.pdop:
+            sky['pdop'] = float(self.pdop)
 
         sats = []
         for sat in self.satellites.values():
@@ -121,6 +132,8 @@ class TPV:
                '    alt=%sm, height_wgs84=%sm,\n' \
                '    vel=%s, ang=%s,\n'  \
                '    hdop=%s, vdop=%s, pdop=%s,\n' \
+               '    epx=%s, epy=%s, epv=%s,\n' \
+               '    mag_dev=%s,\n' \
                '    fix_quality=%s,\n' \
                '    fix_dim=%s,\n' \
                '    faa=%s,forced=%s,warn=%s>' % (
@@ -129,5 +142,7 @@ class TPV:
                 self.alt, self.height_wgs84,
                 self.vel_knots, self.vel_deg,
                 self.hdop, self.vdop, self.pdop,
+                self.epx, self.epy, self.epv,
+                self.mag_dev,
                 self.fix_quality, self.fix_dim, self.faa, self.forced, self.warn)
 
