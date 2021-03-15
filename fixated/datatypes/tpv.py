@@ -68,11 +68,11 @@ class TPV:
         sky['device'] = name
         sky['xdop'] = 0.1
         sky['ydop'] = 0.2
-        sky['vdop'] = 0.3
+        sky['vdop'] = float(self.vdop or 0.0)
         sky['tdop'] = 0.4
-        sky['hdop'] = 0.5
+        sky['hdop'] = float(self.hdop or 0.0)
         sky['gdop'] = 0.6
-        sky['pdop'] = 0.7
+        sky['pdop'] = float(self.pdop or 0.0)
 
         sats = []
         for sat in self.satellites.values():
